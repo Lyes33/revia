@@ -26,34 +26,41 @@ jobs:
           cat diff.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Call HuggingFace (DeepSeek)
+      - name: Call HuggingFace Router (DeepSeek)
         id: hf
         run: |
           DIFF=$(sed 's/"/\\"/g' diff.txt)
 
-          PROMPT="Analyse le diff suivant en tant qu'expert Playwright et TypeScript.
-          Signale :
+          PROMPT="Analyse le diff suivant comme expert Playwright + TypeScript.
+          Trouve :
           - variables non utilisées
           - imports inutiles
           - code mort
           - selectors fragiles
-          - test flaky potentiels
-          - mauvaises pratiques
-          
+          - tests potentiellement flaky
+          - mauvaises pratiques Playwright
+
           Fournis :
-          1. Résumé général
-          2. Liste des problèmes
-          3. Code corrigé
+          1. Résumé clair
+          2. Liste des problèmes détectés
+          3. Suggestions + code corrigé
 
           Diff : $DIFF"
 
-          JSON="{\"inputs\": \"${PROMPT//\"/\\\"}\"}"
+          JSON=$(jq -n --arg prompt "$PROMPT" '{
+            model: "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct",
+            messages: [
+              {role: "user", content: $prompt}
+            ],
+            max_tokens: 800,
+            temperature: 0.2
+          }')
 
           RESPONSE=$(curl -s -X POST \
             -H "Authorization: Bearer ${{ secrets.HF_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "$JSON" \
-            https://api-inference.huggingface.co/models/deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct)
+            https://router.huggingface.co/v1/chat/completions)
 
           echo "REVIEW<<EOF" >> $GITHUB_OUTPUT
           echo "$RESPONSE" >> $GITHUB_OUTPUT
@@ -64,19 +71,10 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const raw = `${{ steps.hf.outputs.REVIEW }}`.trim();
-            let msg = "⚠️ Impossible d'interpréter la réponse IA";
+            const raw = `${{ steps.hf.outputs.REVIEW }}`;
+            let text = "Erreur : réponse IA vide ou non valide.";
 
             try {
-              const j = JSON.parse(raw);
-              msg = j[0]?.generated_text || j.generated_text || raw;
-            } catch {
-              msg = raw;
-            }
-
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: "🤖 **Review automatique IA (DeepSeek)**\n\n" + msg
-            });
+              const json = JSON.parse(raw);
+              text = json.choices?.[0]?.message?.content || text;
+            } catch (e)
