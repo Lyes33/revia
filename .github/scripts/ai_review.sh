@@ -14,6 +14,7 @@ DIFF=$(sed 's/"/\\"/g' diff.txt)
 # Prompt JSON
 PROMPT=$(cat <<EOF
 Analyse le diff suivant comme expert Playwright + TypeScript.  
+Pour chaque problème détecté, renvoie **toutes** les variables, constantes ou fonctions qui sont définies mais jamais utilisées, ainsi que tout autre problème pertinent.  
 Pour chaque problème détecté, renvoie un objet JSON avec :  
 - file : nom du fichier  
 - line : numéro de ligne du diff où le problème apparaît  
@@ -24,8 +25,7 @@ $DIFF
 
 Le JSON final doit être sous la forme :  
 [
-  {"file": "tests/example.spec.ts", "line": 23, "message": "Variable non utilisée"},
-  {"file": "tests/example.spec.ts", "line": 45, "message": "Selector fragile"}
+  {"file": "<nom du fichier>", "line": <numéro de ligne>, "message": "<texte explicatif>"}
 ]
 EOF
 )
