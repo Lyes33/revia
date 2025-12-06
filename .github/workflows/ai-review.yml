@@ -8,6 +8,9 @@ permissions:
   pull-requests: write
   contents: read
 
+env:
+  AI_REVIEW: ""
+
 jobs:
   ai-review:
     runs-on: ubuntu-latest
@@ -35,10 +38,15 @@ jobs:
             let text = "Erreur : réponse IA vide ou non valide.";
             try {
               const json = JSON.parse(raw);
-              text = json.choices?.[0]?.message?.content || text;
-            } catch {
-              text = raw;
+              if (json.choices && json.choices.length > 0 && json.choices[0].message) {
+                text = json.choices[0].message.content;
+              } else if (json.detail) {
+                text = "Erreur API : " + json.detail;
+              }
+            } catch (e) {
+              text = "Erreur JSON parsing : " + raw;
             }
+
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
