@@ -14,22 +14,22 @@ DIFF=$(sed 's/"/\\"/g' diff.txt)
 # Préparer le prompt pour l'IA
 PROMPT=$(cat <<EOF
 Tu es un expert Playwright + TypeScript.
-Voici le diff du PR :
-$DIFF
+Analyse le diff suivant et détecte :
+1. Variables ou fonctions définies mais jamais utilisées.
+2. Toutes les variables const ou let doivent être en camelCase.
+3. Autres problèmes de code pertinents.
 
-Règles à respecter :
-1. Toutes les variables déclarées avec const ou let doivent être en camelCase.
-2. Liste également toutes les variables, constantes ou fonctions définies mais jamais utilisées.
-3. Pour chaque problème détecté, renvoie un objet JSON avec :
-   - file : nom du fichier
-   - line : numéro de ligne du problème
-   - message : description claire et suggestion de correction
-
-Exemple de format attendu :
+Renvoie un JSON avec :
 [
-  {"file": "tests/example.spec.ts", "line": 4, "message": "Variable 'User_Name' doit être renommée en camelCase, par exemple 'userName'"},
-  {"file": "tests/example.spec.ts", "line": 5, "message": "Variable définie mais jamais utilisée"}
+  {
+    "file": "nom du fichier",
+    "line": numéro de ligne,
+    "message": "texte clair avec suggestion de correction"
+  }
 ]
+
+Diff :
+$DIFF
 EOF
 )
 
