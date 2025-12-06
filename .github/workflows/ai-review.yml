@@ -46,10 +46,9 @@ jobs:
             } catch (e) {
               text = "Erreur JSON parsing : " + raw;
             }
-
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "🤖 **Review automatique IA (DeepSeek :nebius)**\n\n" + text
+              body: "🤖 **Review automatique IA (via Meta‑Llama 3.1 8B)**\n\n" + text
             });
