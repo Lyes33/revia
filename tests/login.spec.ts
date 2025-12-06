@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('Login successful', async ({ page }) => {
   const user = 'standard_user'
   const pwd = 'secret_sauce'
-  const user2 = 'locked_out_user'
+  const user3 = 'locked_out_user'
   await page.goto('https://www.saucedemo.com/');
 
   await page.locator('[data-test="username"]').fill('standard_user')
