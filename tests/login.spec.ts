@@ -9,7 +9,7 @@ test('Login successful', async ({ page }) => {
   await page.locator('[data-test="login-button"]').click()
 
   // Expect a title "to contain" a substring.
-  await expect(page.url()).toContain('/invenqtory.html');
+  await expect(page.url()).toContain('/inventory.html');
 });
 
 
