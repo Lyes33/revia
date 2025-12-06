@@ -40,7 +40,7 @@ PROMPT="$PROMPT$DIFF"
 
 # Préparer le JSON pour HuggingFace
 JSON=$(jq -n --arg prompt "$PROMPT" '{
-  model: "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct",
+  model: "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct:nebius",
   messages: [{role: "user", content: $prompt}],
   max_tokens: 800,
   temperature: 0.2
