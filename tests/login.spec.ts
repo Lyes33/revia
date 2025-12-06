@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('Login successful', async ({ page }) => {
+  const user = 'standard_user'
   await page.goto('https://www.saucedemo.com/');
 
   await page.locator('[data-test="username"]').fill('standard_user')
