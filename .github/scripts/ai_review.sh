@@ -1,42 +1,39 @@
 #!/bin/bash
 set -e
 
-if [[ -z "$PR_URL" ]]; then
-  echo "ERREUR : PR_URL n'est pas défini."
-  exit 1
-fi
-if [[ -z "$HF_TOKEN" ]]; then
-  echo "ERREUR : HF_TOKEN n'est pas défini."
+# Variables d'environnement
+if [[ -z "$PR_URL" || -z "$HF_TOKEN" ]]; then
+  echo "ERREUR : PR_URL ou HF_TOKEN non défini"
   exit 1
 fi
 
+# Récupérer le diff
 curl -s -H "Accept: application/vnd.github.v3.diff" "$PR_URL" > diff.txt
 DIFF=$(sed 's/"/\\"/g' diff.txt)
 
-PROMPT=$(cat <<'EOF'
-Analyse le diff suivant comme expert Playwright + TypeScript.
-Trouve :
-- variables non utilisées
-- imports inutiles
-- code mort
-- selectors fragiles
-- tests potentiellement flaky
-- mauvaises pratiques Playwright
-
-Fournis :
-1. Résumé clair
-2. Liste des problèmes détectés
-3. Suggestions + code corrigé
+# Prompt JSON
+PROMPT=$(cat <<EOF
+Analyse le diff suivant comme expert Playwright + TypeScript.  
+Pour chaque problème détecté, renvoie un objet JSON avec :  
+- file : nom du fichier  
+- line : numéro de ligne du diff où le problème apparaît  
+- message : description du problème et suggestion de correction  
 
 Diff :
+$DIFF
+
+Le JSON final doit être sous la forme :  
+[
+  {"file": "tests/example.spec.ts", "line": 23, "message": "Variable non utilisée"},
+  {"file": "tests/example.spec.ts", "line": 45, "message": "Selector fragile"}
+]
 EOF
 )
-PROMPT="$PROMPT$DIFF"
 
 JSON=$(jq -n --arg prompt "$PROMPT" '{
   model: "meta-llama/Llama-3.1-8B-Instruct",
   messages: [{role: "user", content: $prompt}],
-  max_tokens: 800,
+  max_tokens: 1000,
   temperature: 0.2
 }')
 
@@ -46,4 +43,5 @@ RESPONSE=$(curl -s -X POST \
   -d "$JSON" \
   https://router.huggingface.co/v1/chat/completions)
 
+# Stocker la réponse brute pour GitHub Actions
 echo "AI_REVIEW=$RESPONSE" >> $GITHUB_ENV
