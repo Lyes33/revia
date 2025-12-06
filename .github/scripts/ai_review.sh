@@ -12,7 +12,8 @@ curl -s -H "Accept: application/vnd.github.v3.diff" "$PR_URL" > diff.txt
 DIFF=$(sed 's/"/\\"/g' diff.txt)
 
 # Lancer ESLint pour détecter toutes les variables non utilisées
-eslint_output=$(npx eslint . --format json || true)
+eslint_output=$(npx ts-node .github/scripts/eslint-formatter.ts)
+
 
 #  Préparer le prompt pour l'IA
 PROMPT=$(cat <<EOF
