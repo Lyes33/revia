@@ -14,68 +14,69 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v4
 
-      # 🔥 Diff fiable pour TOUTES les PR, même depuis un fork
       - name: Get PR diff
         id: diff
         run: |
-          echo "Fetching PR diff..."
-          git fetch origin pull/${{ github.event.pull_request.number }}/head:pr
-          git diff pr > diff.txt
+          curl -s -H "Accept: application/vnd.github.v3.diff" \
+            "${{ github.event.pull_request.url }}" > diff.txt
 
           echo "DIFF<<EOF" >> $GITHUB_OUTPUT
           cat diff.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      # 🤖 Appel IA via HuggingFace Router (nouveau système)
-      - name: Call HuggingFace Inference API
+      - name: Call HuggingFace (DeepSeek)
         id: hf
         run: |
           DIFF=$(sed 's/"/\\"/g' diff.txt)
 
-          PROMPT="Tu es un expert en Playwright et TypeScript. Analyse STRICTEMENT le diff suivant.
-          - Trouve ABSOLUMENT TOUTES les erreurs, même mineures
-          - Variables non utilisées
-          - Imports inutilisés
-          - Code mort
-          - Mauvaises pratiques Playwright
-          - Risques de tests flaky
-          - Duplication inutile
-          - Mauvais selectors / mauvaise gestion des attentes
-          Donne :
+          PROMPT="Analyse le diff suivant en tant qu'expert Playwright et TypeScript.
+          Signale :
+          - variables non utilisées
+          - imports inutiles
+          - code mort
+          - selectors fragiles
+          - test flaky potentiels
+          - mauvaises pratiques
+          
+          Fournis :
           1. Résumé général
-          2. Liste détaillée des problèmes
-          3. Suggestions avec code corrigé
+          2. Liste des problèmes
+          3. Code corrigé
+
           Diff : $DIFF"
 
-          PAYLOAD="{\"inputs\": \"$PROMPT\"}"
+          JSON="{\"inputs\": \"${PROMPT//\"/\\\"}\"}"
 
           RESPONSE=$(curl -s -X POST \
             -H "Authorization: Bearer ${{ secrets.HF_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "$PAYLOAD" \
-            https://router.huggingface.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct)
-
-          echo "$RESPONSE" > ai_review.json
+            -d "$JSON" \
+            https://api-inference.huggingface.co/models/deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct)
 
           echo "REVIEW<<EOF" >> $GITHUB_OUTPUT
           echo "$RESPONSE" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      # 📝 Commentaire dans la Pull Request
-      - name: Post comment on PR
-        uses: actions/github-script@v6
+      - name: Post comment to PR
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const review = `${{ steps.hf.outputs.REVIEW }}`.trim();
+            const raw = `${{ steps.hf.outputs.REVIEW }}`.trim();
+            let msg = "⚠️ Impossible d'interpréter la réponse IA";
+
+            try {
+              const j = JSON.parse(raw);
+              msg = j[0]?.generated_text || j.generated_text || raw;
+            } catch {
+              msg = raw;
+            }
 
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "🤖 **Review automatique IA (DeepSeek Coder)**\n\n" + review
+              body: "🤖 **Review automatique IA (DeepSeek)**\n\n" + msg
             });
