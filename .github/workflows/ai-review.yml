@@ -16,53 +16,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get PR diff
-        id: diff
+      - name: Run AI review script
+        env:
+          PR_URL: ${{ github.event.pull_request.url }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          curl -s -H "Accept: application/vnd.github.v3.diff" "${{ github.event.pull_request.url }}" > diff.txt
-
-      - name: Prepare prompt file
-        run: |
-          cat > prompt.txt <<'EOF'
-          Analyse le diff suivant comme expert Playwright + TypeScript.
-        Trouve :
-        - variables non utilisées
-        - imports inutiles
-        - code mort
-        - selectors fragiles
-        - tests potentiellement flaky
-        - mauvaises pratiques Playwright
-
-        Fournis :
-        - Résumé clair
-        - Liste des problèmes détectés
-        - Suggestions + code corrigé
-
-        Diff :
-         EOF
-          cat diff.txt >> prompt.txt
-
-      - name: Call HuggingFace Router (DeepSeek)
-        id: hf
-        run: |
-          PROMPT=$(cat prompt.txt)
-          JSON=$(jq -n --arg prompt "$PROMPT" '{
-            model: "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct",
-            messages: [{role: "user", content: $prompt}],
-            max_tokens: 800,
-            temperature: 0.2
-          }')
-          RESPONSE=$(curl -s -X POST \
-            -H "Authorization: Bearer ${{ secrets.HF_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d "$JSON" \
-            https://router.huggingface.co/v1/chat/completions)
-          echo "review=$RESPONSE" >> $GITHUB_ENV
+          chmod +x .github/scripts/ai_review.sh
+          .github/scripts/ai_review.sh
 
       - name: Post comment to PR
         uses: actions/github-script@v7
         env:
-          AI_REVIEW: ${{ env.review }}
+          AI_REVIEW: ${{ env.AI_REVIEW }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
