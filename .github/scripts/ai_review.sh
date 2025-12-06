@@ -7,21 +7,17 @@ if [[ -z "$PR_URL" || -z "$HF_TOKEN" ]]; then
   exit 1
 fi
 
-# Récupérer le diff complet du PR (optionnel si nécessaire)
+# Récupérer le diff complet du PR
 curl -s -H "Accept: application/vnd.github.v3.diff" "$PR_URL" > diff.txt
 DIFF=$(sed 's/"/\\"/g' diff.txt)
 
-# Lancer ESLint pour détecter toutes les variables non utilisées
-eslint_output=$(npx ts-node .github/scripts/eslint-formatter.ts)
-
-
-#  Préparer le prompt pour l'IA
+# Préparer le prompt pour l'IA
 PROMPT=$(cat <<EOF
 Tu es un expert Playwright + TypeScript.
-Voici la sortie JSON d'ESLint pour les problèmes de code :
-$eslint_output
+Voici le diff du PR :
+$DIFF
 
-Règles supplémentaires :
+Règles à respecter :
 1. Toutes les variables déclarées avec const ou let doivent être en camelCase.
 2. Liste également toutes les variables, constantes ou fonctions définies mais jamais utilisées.
 3. Pour chaque problème détecté, renvoie un objet JSON avec :
@@ -51,5 +47,5 @@ RESPONSE=$(curl -s -X POST \
   -d "$JSON" \
   https://router.huggingface.co/v1/chat/completions)
 
-#  Stocker la réponse brute pour GitHub Actions
+# Stocker la réponse brute pour GitHub Actions
 echo "AI_REVIEW=$RESPONSE" >> $GITHUB_ENV
